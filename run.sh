@@ -1,6 +1,8 @@
 #!/bin/bash
 
-program_name="/root/RVD_APP/rvd-v1.0.0b0"
+read -p "Enter Radar IP Address: " arg1
+
+program_name="./rvd-v1.0.0b0 $arg1"
 max_attempts=99
 attempt=1
 

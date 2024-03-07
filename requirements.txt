@@ -1,11 +1,2 @@
-net-tools
-build-essential
-manpages-dev
-nano
-gpiod
-htop
-bridge-utils
-cron
-ntpdate
-libmodbus-dev
-libncurses5-dev libncursesw5-dev
+crcmod
+numpy

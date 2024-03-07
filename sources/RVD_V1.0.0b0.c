@@ -3,7 +3,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <ifaddrs.h>
-#include "./lib/modbus/modbus.h"
+#include "./include/lib/modbus/modbus.h"
 #include <linux/if_link.h>
 #include <linux/if_packet.h>
 #include <net/if.h>
@@ -140,15 +140,15 @@ NetworkInfo *ExtractNetwork(const char *, const char *);
 void *Alive(void *args)
 {
     struct timespec sleepTime = {ALIVE_MSG_DURATION, 0};
-    // char **arguments = (char **)args;
-    // int mport = atoi(arguments[2]);
+    //char **arguments = (char **)args;
+    //int mport = atoi(arguments[2]);
     int mport = 60000;
 
     sock_mcast = socket(AF_INET, SOCK_DGRAM, 0);
     printf("\n[+]ALIVE Socket Active");
     mcast.sin_family = AF_INET;
     mcast.sin_port = htons(mport);                     // Port of ALIVE Radar
-    mcast.sin_addr.s_addr = inet_addr("192.168.11.3"); // arguments[1]); // IP Address of Radar
+    mcast.sin_addr.s_addr = inet_addr(arguments[1]); // IP Address of Radar
 
     while (1)
     {

@@ -61,23 +61,17 @@ nano /etc/network/interfaces.d/br0
 # br0.txt
 
 auto eth0
-    iface eth0 inet static
-    address 192.168.2.8
-    netmask 255.255.255.0
-    broadcast 192.168.11.255
+	iface eth0 inet manual
 auto eth1
-    iface eth1 inet static
-    address 192.168.11.8
-    netmask 255.255.255.0
-    broadcast 192.168.11.255
+	iface eth1 inet manual
 auto br0
-    iface br0 inet static
-    address 192.168.12.49
+	iface br0 inet static
+	address 192.168.12.49
     netmask 255.255.255.0
-    gateway 192.168.12.255
-    bridge_ports eth0 eth1
-    bridge_stp off
-    bridge_fd 0
+	gateway 192.168.12.255
+	bridge_ports eth0 eth1
+	bridge_stp off
+	bridge_fd 0
 ```
 ## Apply setting
 ```shell
@@ -101,143 +95,124 @@ echo <value> > /sys/class/gpio/gpio<pin_number>/value
 ```
 < value> --> 1 = HIGH, 0 = LOW
 
-Instruction: NTP Service
-{
-    Set timezone:
-    timedatectl list-timezones
-    sudo timedatectl set-timezone Asia/Bangkok
+# NTP Service Setup
+## Set timezone
+```shell
+timedatectl list-timezones
+sudo timedatectl set-timezone Asia/Bangkok
+```
 
+## Synchronize time with NTP server
+```shell
+ntpdate <NTP Server>
+```
+
+## etc.
+- Systemd-timesyncd
     1. apt install systemd-timesyncd
     2. nano /etc/systemd/timesyncd.conf
-    3.systemctl restart systemd-timesyncd
+    3. systemctl restart systemd-timesyncd
 
-    CHRONY
+- CHRONY
     1. apt install chrony
     2. nano /etc/chrony/chrony.conf
     3. pool <YOUR NTP SERVER> iburst
 
+# Remote Configuration (TMConfiguration)
+## Turn on bridge network for configuration
+- Run command below,
+```shell
+nano br_On.sh
+```
+br_On.sh
 
-    systemctl unmask systemd-timesyncd.service
-    systemctl restart systemd-timesyncd
-
-    or
-
-    ntpdate <NTP Server>
-}
-################################ Bash script ################################
-
-Instruction: "nano br_On.sh"
-Description : Turn on bridge network
-{
     #!/bin/bash
     # Crete bridge
     brctl addbr br0
 
-    # Assign IP address to bridge interface
+    # Add existing interfaces to bridge
+    brctl addif br0 eth1 eth2
+
+    # Or assign IP address to bridge interface (Don't recommend)
     ip addr add 192.168.11.10/24 brd + dev br0 // ip route add default via 192.168.2.1 dev br0
 
-    # Add interfaces to bridge
-    brctl addif br0 eth1 eth2
-}
+## Turn off bridge network when finish configuring
+- Run command below,
+```shell
+nano br_Off.sh
+```
+br_Off.sh
 
-Instruction: "nano br_Off.sh"
-Description : Turn off bridge network
-{
     #!/bin/sh
     ip link set br0 down
     brctl delbr br0
-}
-RUN "chmod 774 br_Off.sh" to activate
 
-Instruction: "nano RVD_Shutdown.txt"
-Description : Kill the RVD program when its perform background runs
-{
-    Run these in sequence
-    {
-        1."htop"
-        2.Find ".rvd" process
-        3.Press "F9" -> SIGKILL
-        4.Press "F10"
-    }
-}
+Run command below to activate
+```shell
+chmod 774 br_Off.sh
+```
 
-Instruction: "nano keep_alive.sh"
-Description : Run the RVD program continueously
-{
-    #!/bin/bash
+# Kill the RVD program when its perform background runs
+- Open system monitoring tool
+```shell
+htop
+```
+- Find ".rvd" process
+- Press "F9" -> SIGKILL
+- Press "F10" to quit
 
-    program_name="./rvd 192.168.11.55 60000"
-    max_attempts=10
-    attempt=1
+# Executing the RVD Program
+Run command below
+```shell
+chmod -x run.sh
+./run.sh
+```
+and it will ask for Radar IP Address
+```shell
+Enter Radar IP Address: <Radar_IP_Address>
+```
+# Startup
+- Go to rc.local
+```shell
+nano /etc/rc.local
+```
 
-    # Function to run the program and check its exit status
-    run_rvd() {
-        echo "Running ./rvd"
-        ./rvd 192.168.11.55 60000
-        return $?
-    }
+rc.local
 
-    if pgrep -f "$program_name" > /dev/null; then
-        echo "The RVD Program is running"
-    else
-        echo "The RVD Program isn't running at this moment"
-
-        while [ $attempt -le $max_attempts ]; do
-            echo "Attempt $attempt: Running ./rvd"
-
-            run_rvd
-            exit_status=$?
-
-            if [ $exit_status -eq -1 ]; then
-                echo "The ./rvd returned -1. Restarting..."
-            else
-                echo "The ./rvd exit status: $exit_status"
-                break
-            fi
-
-            ((attempt++))
-        done
-
-        if [ $attempt -gt $max_attempts ]; then
-            echo "Restarting failed, Reporting to TMC..."
-        else
-            echo "Restarting Successfully"
-        fi
-    fi
-}
---> Run, "chmod -x "your_program"" to make it excutable.
-
-################################ Task scheduler & Startup ################################
-
-Instruction: "nano /etc/rc.local"
-Description : Startup programs
-{
     #!/bin/sh -e
     # rc.local
 
     # List of programs to run at startup
     /root/bridge_off.sh &
-    /root/RVD/version &
-}
+    /root/RVD_APP/run.sh &
 
-Instruction: "crontab -e"
-Description : Task scheduler
-{
+# Task scheduler
+Run 
+```shell
+crontab -e
+```
+
     SHELL=/bin/sh
     HOME=/root
     PATH=/usr/local/sbin:usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 
+    # * * * * * your_command
+    # | | | | |
+    # | | | | +-- Day of the week (0 - 7) (Sunday is 0 or 7)
+    # | | | +---- Month (1 - 12)
+    # | | +------ Day of the month (1 - 31)
+    # | +-------- Hour (0 - 23)
+    # +---------- Minute (0 - 59)
+
     5 * * * * /root/bridge_off.sh # Turn off bridge network every 5 minutes 
     * * * * * /root/keep_alive.sh # Check the RVD program every 1 minute 
-}
-SHELL=/bin/bash
-HOME=/home/apo
-PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+</p>
 
-* * * * * /bin/bash /home/apo/restart_script.sh
-service cron restart or systemctl restart cron
+    SHELL=/bin/bash
+    HOME=/home/apo
+    PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+    * * * * * /bin/bash /home/apo/restart_script.sh
+    service cron restart or systemctl restart cron
 
 Instruction "usbipd wsl attach --busid <id>
-
-Instruction: "ntpdate <ip address>
-Description: Set Date to IP
