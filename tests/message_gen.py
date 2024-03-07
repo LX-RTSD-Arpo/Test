@@ -1,5 +1,5 @@
 import socket
-import crcmod
+#import crcmod
 import time
 import random
 from collections import defaultdict
