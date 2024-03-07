@@ -164,7 +164,7 @@ htop
 # Executing the RVD Program
 Run command below
 ```shell
-chmod -x run.sh
+chmod +x run.sh
 ./run.sh
 ```
 and it will ask for Radar IP Address

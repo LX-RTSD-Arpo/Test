@@ -3,7 +3,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <ifaddrs.h>
-#include "./include/lib/modbus/modbus.h"
+#include "../include/lib/modbus/modbus.h"
 #include <linux/if_link.h>
 #include <linux/if_packet.h>
 #include <net/if.h>
@@ -140,7 +140,7 @@ NetworkInfo *ExtractNetwork(const char *, const char *);
 void *Alive(void *args)
 {
     struct timespec sleepTime = {ALIVE_MSG_DURATION, 0};
-    //char **arguments = (char **)args;
+    char **arguments = (char **)args;
     //int mport = atoi(arguments[2]);
     int mport = 60000;
 
