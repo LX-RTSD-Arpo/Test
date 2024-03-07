@@ -17,5 +17,7 @@ sudo apt-get install libncurses5-dev libncursesw5-dev
 pip install -r requirements.txt
 
 # Run gcc on wo_req_crctable.c
-gcc ./sources/RVD_V1.0.0b0.c -o rvd-v1.0.0b0 -lpthread -lmodbus
+gcc ./sources/RVD_V1.0.0b0.c -o ./sources/rvd-v1.0.0b0 -lpthread -lmodbus
 chmod +x run.sh
+chmod +x ./tools/br_On.sh
+chmod 774 ./tools/br_Off.sh
