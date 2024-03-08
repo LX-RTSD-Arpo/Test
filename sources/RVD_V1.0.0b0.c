@@ -26,7 +26,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#define MAX_QUEUE 1024
+#define MAX_QUEUE 10000
 #define BUF_SIZ 1024
 #define ALIVE_MSG_DURATION 1
 
@@ -40,7 +40,7 @@
 
 FILE *storefile;
 
-const char start[30] = {0x7e, 0x01, 0x0c, 0x00, 0x10, 0x07, 0x00, 0x00, 0x00, 0x00, 0x80, 0x88,
+unsigned char start[30] = {0x7e, 0x01, 0x0c, 0x00, 0x10, 0x07, 0x00, 0x00, 0x00, 0x00, 0x80, 0x88,
                         0x03, 0x00, 0x00, 0x00,
                         0x01, 0x00, 0x00, 0x01, // Client ID
                         0xc0, 0xa8, 0x0b, 0x08, // NanoPi IP
@@ -95,10 +95,10 @@ time_t t;
 socklen_t addrlen;
 struct ifaddrs *ifa, *ifap;
 struct ifreq mac;
-struct sockaddr_in mcast, receiver, *sa, server;
+struct sockaddr_in mcast, mcast_dest, receiver, *sa, server;
 struct timeval tv, net_tv, stimeout;
 
-int a, b, i, j, k, q, val, Crc_Byte, Crc_Time, Crc_UDP;
+int a, b, i, j, k, pack_byte, q, val, Crc_Byte, Crc_Time, Crc_UDP;
 unsigned char bu_buf[BUF_SIZ], checker[BUF_SIZ], Tchecker[BUF_SIZ], udp_checker[BUF_SIZ], client_buf[BUF_SIZ], crc_buf[2], crc_tbuf[2], crc_ubuf[2], dummy1[22], 
 dummy2[33], len_buf[2], recv_buf[BUF_SIZ], packet[BUF_SIZ], seq_buf[3], tcp_pack[BUF_SIZ], tm_buf[8], val_buf[BUF_SIZ], ver_buf[2];
 
@@ -140,19 +140,37 @@ NetworkInfo *ExtractNetwork(const char *, const char *);
 void *Alive(void *args)
 {
     struct timespec sleepTime = {ALIVE_MSG_DURATION, 0};
-    char **arguments = (char **)args;
+    //char **arguments = (char **)args;
     //int mport = atoi(arguments[2]);
     int mport = 60000;
 
     sock_mcast = socket(AF_INET, SOCK_DGRAM, 0);
-    printf("\n[+]ALIVE Socket Active");
     mcast.sin_family = AF_INET;
     mcast.sin_port = htons(mport);                     // Port of ALIVE Radar
-    mcast.sin_addr.s_addr = inet_addr(arguments[1]); // IP Address of Radar
+    mcast.sin_addr.s_addr = inet_addr("192.168.11.8");// arguments[1]); // IP Address of Radar
+    if (bind(sock_mcast, (struct sockaddr *)&mcast, sizeof(mcast)) < 0) {
+        perror("bind failed");
+        exit(EXIT_FAILURE);
+    }
+    printf("\n[+]ALIVE Socket Activate");
+
+    mcast_dest.sin_family = AF_INET;
+    mcast_dest.sin_port = htons(mport);                     // Port of ALIVE Radar
+    mcast_dest.sin_addr.s_addr = inet_addr("192.168.11.55");// arguments[1]); // IP Address of Radar
+
+    unsigned char *bytes = (unsigned char *)&mcast_dest.sin_addr;
+    for (int ip_byte = 0; ip_byte < 4; ++ip_byte)
+        start[ip_byte + 20] = bytes[ip_byte];
+
+    uint16_t m_crc = checksum((unsigned char *)&start[12], 16, crc_table);
+
+    // Put the CRC value into start[28] and start[29]
+    start[28] = (m_crc >> 8) & 0xFF; // High byte
+    start[29] = m_crc & 0xFF;         // Low byte
 
     while (1)
     {
-        sendto(sock_mcast, start, sizeof(start), 0, (struct sockaddr *)&mcast, sizeof(mcast));
+        sendto(sock_mcast, start, sizeof(start), 0, (struct sockaddr *)&mcast_dest, sizeof(mcast_dest));
         nanosleep(&sleepTime, NULL);
     }
 }
@@ -367,7 +385,7 @@ int main(int argc, char *argv[])
     }
 
     server.sin_family = AF_INET;
-    server.sin_port = htons(40003);                                        /* Server-side port */
+    server.sin_port = htons(50002);                                        /* Server-side port */
     server.sin_addr.s_addr = inet_addr(networkInfo->ipAddress2);           /* Server-side address */
     if (bind(sock_serv, (struct sockaddr *)&server, sizeof(server)) == -1) /* Bind to eth1 */
     {
@@ -453,8 +471,14 @@ int main(int argc, char *argv[])
                     memset(bu_buf, '\0', BUF_SIZ);
                     printf("\n\t[+]We have unsent data");
                     dequeue(&cb1, bu_buf);
-                    send(newfd, bu_buf, bu_buf[1] << 8 | bu_buf[2], 0);
-                    printf(" --> SENT!!");
+                    int bu_byte = send(newfd, bu_buf, bu_buf[1] << 8 | bu_buf[2], 0);
+                    if (bu_byte <= 0)
+		    {
+			perror("send");
+			close(newfd);
+			break;
+		    }
+		    printf(" --> SENT!!");
                     printf("\nCB count : %d\n", cb1.count);
                 }
 
@@ -530,7 +554,7 @@ int main(int argc, char *argv[])
                                 int online = recvfrom(sock_raw, recv_buf, BUF_SIZ, 0, (struct sockaddr *)&receiver, &receiver_size);
                                 if (online < 0)
                                 {
-                                    tcp_pack[b++] = 0x03;
+                                    tcp_pack[b++] = 0x02;
                                     printf(" --> Radar Offline\n");
                                 }
                                 else
@@ -582,7 +606,12 @@ int main(int argc, char *argv[])
                                 tcp_pack[b + (2 - i)] = crc_buf[i - 1];
                             b += 2;
                             tcp_pack[b++] = 0x03;
-                            send(newfd, tcp_pack, b, 0);
+                            pack_byte = send(newfd, tcp_pack, b, 0);
+			    if (pack_byte <= 0)
+			    {
+				perror("send");
+				close(newfd);
+		    	    }
                             break;
                         }
                         case 4:
@@ -676,8 +705,13 @@ int main(int argc, char *argv[])
                                 tcp_pack[b + 2 - i] = crc_buf[i - 1];
                             b += 2;
                             tcp_pack[b++] = 0x03;
-                            send(newfd, tcp_pack, b, 0);
-                            break;
+                            pack_byte = send(newfd, tcp_pack, b, 0);
+                            if (pack_byte <= 0)
+			    {
+				perror("send");
+				close(newfd);
+		    	    }
+			    break;
                         case 5:
                             printf(" --> Power reset request");
                             tcp_pack[2] = 0x16;
@@ -776,8 +810,13 @@ int main(int argc, char *argv[])
                                 tcp_pack[b + (2 - i)] = crc_buf[i - 1];
                             b += 2;
                             tcp_pack[b++] = 0x03;
-                            send(newfd, tcp_pack, b, 0);
-                            if (pthread_create(&stimeth, NULL, SetTimeth, NULL) != 0)
+                            pack_byte == send(newfd, tcp_pack, b, 0);
+                            if (pack_byte <= 0)
+			    {
+				perror("send");
+				close(newfd);
+		    	    }
+			    if (pthread_create(&stimeth, NULL, SetTimeth, NULL) != 0)
                             {
                                 perror("Set time  thread creation failed");
                                 exit(EXIT_FAILURE);
@@ -808,8 +847,13 @@ int main(int argc, char *argv[])
                                 tcp_pack[b + (2 - i)] = crc_buf[i - 1];
                             b += 2;
                             tcp_pack[b++] = 0x03;
-                            send(newfd, tcp_pack, b, 0);
-                            break;
+                            pack_byte = send(newfd, tcp_pack, b, 0);
+                            if (pack_byte <= 0)
+			    {
+				perror("send");
+				close(newfd);
+		    	    }
+			    break;
                         }
                     }
                     else
@@ -834,7 +878,13 @@ int main(int argc, char *argv[])
                             tcp_pack[b + (2 - i)] = crc_buf[i - 1];
                         b += 2;
                         tcp_pack[b++] = 0x03;
-                        send(newfd, tcp_pack, b, 0);
+                        pack_byte = send(newfd, tcp_pack, b, 0);
+			if (pack_byte <= 0)
+			{
+			    perror("send");
+			    close(newfd);
+			    break;
+		    	}
                     }
                 }
                 else if (nbytes == 0)

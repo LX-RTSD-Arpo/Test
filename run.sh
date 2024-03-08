@@ -8,7 +8,7 @@ attempt=1
 
 run_rvd() {
 	echo "Starting rvd-v1.0.0b0..."
-	/root/MT\ Series/test
+	/root/RVD/sources/rvd-v1.0.0b0
 	return $?
 }
 
