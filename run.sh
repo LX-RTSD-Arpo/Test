@@ -2,13 +2,13 @@
 
 read -p "Enter Radar IP Address: " arg1
 
-program_name="./rvd-v1.0.0b0 $arg1"
+program_name="./rvd-v1.0.0b1 $arg1"
 max_attempts=99
 attempt=1
 
 run_rvd() {
-	echo "Starting rvd-v1.0.0b0..."
-	/root/RVD/sources/rvd-v1.0.0b0
+	echo "Starting rvd-v1.0.0b1..."
+	/root/RVD/sources/rvd-v1.0.0b1
 	return $?
 }
 

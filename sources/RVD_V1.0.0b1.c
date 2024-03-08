@@ -156,9 +156,9 @@ void *Alive(void *args)
 
     mcast_dest.sin_family = AF_INET;
     mcast_dest.sin_port = htons(mport);                     // Port of ALIVE Radar
-    mcast_dest.sin_addr.s_addr = inet_addr("192.168.11.55");// arguments[1]); // IP Address of Radar
+    mcast_dest.sin_addr.s_addr = inet_addr("192.168.11.3");// arguments[1]); // IP Address of Radar
 
-    unsigned char *bytes = (unsigned char *)&mcast_dest.sin_addr;
+    unsigned char *bytes = (unsigned char *)&mcast.sin_addr;
     for (int ip_byte = 0; ip_byte < 4; ++ip_byte)
         start[ip_byte + 20] = bytes[ip_byte];
 
@@ -208,7 +208,7 @@ void *udpsocket(void *args)
         close(sock_raw);
         exit(EXIT_FAILURE);
     }
-    printf("\nInterface: eth0");
+    printf("\nInterface: eth1");
     printf("\b\n\t |-Source IP: %s\n", inet_ntoa(receiver.sin_addr));
     SetTime();
 
@@ -469,8 +469,10 @@ int main(int argc, char *argv[])
             {
                 stimeout.tv_sec = 0;
                 stimeout.tv_usec = 80000;
+                gettimeofday(&tv, NULL);
+                tm = ((long long)tv.tv_sec * 1000) + (tv.tv_usec / 1000);
 
-	    	while (!isEmpty(&cb1))
+		while (!isEmpty(&cb1))
             	{
 		    int connected;
     		    socklen_t connected_len = sizeof(connected);
@@ -507,8 +509,6 @@ int main(int argc, char *argv[])
                 nbytes = recv(newfd, client_buf, sizeof(client_buf), 0);
                 if (nbytes > 0)
                 {
-                    gettimeofday(&tv, NULL);
-                    tm = ((long long)tv.tv_sec * 1000) + (tv.tv_usec / 1000);
                     memset(checker, '\0', BUF_SIZ);
                     memset(tcp_pack, '\0', BUF_SIZ);
                     memset(val_buf, '\0', BUF_SIZ);
@@ -567,7 +567,7 @@ int main(int argc, char *argv[])
                                 int online = recvfrom(sock_raw, recv_buf, BUF_SIZ, 0, (struct sockaddr *)&receiver, &receiver_size);
                                 if (online < 0)
                                 {
-                                    tcp_pack[b++] = 0x02;
+                                    tcp_pack[b++] = 0x03;
                                     printf(" --> Radar Offline\n");
                                 }
                                 else
