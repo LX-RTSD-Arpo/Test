@@ -1,0 +1,24 @@
+#include <ModbusMaster.h>
+
+#define MODBUS_SLAVE_ID 1
+#define MODBUS_SERIAL Serial1
+
+ModbusMaster node;
+
+const char helloMessage[] = "HELLO";
+
+void setup() {
+  MODBUS_SERIAL.begin(9600);
+  node.begin(MODBUS_SLAVE_ID, MODBUS_SERIAL);
+}
+
+void loop() {
+  // Write "HELLO" to the holding registers
+  for (uint8_t i = 0; i < 5; i++) {
+    node.writeSingleRegister(i, helloMessage[i]);
+  }
+
+  //node.poll();  // Handle Modbus communication
+
+  delay(10);
+}

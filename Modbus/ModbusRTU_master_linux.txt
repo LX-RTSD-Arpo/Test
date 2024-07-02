@@ -1,0 +1,85 @@
+/*
+Install libmodbus: 	sudo apt-get install libmodbus-dev
+Compile command: 	gcc -o modbus_master modbus_master.c -lmodbus
+
+--------------------------------NOTE-----------------------------------
+Ensure you replace /dev/ttyS0 with the appropriate serial port device
+and adjust the MODBUS slave address, starting address, and the number
+of registers to read based on your specific MODBUS RTU slave device
+and requirements.
+-----------------------------------------------------------------------
+
+*/
+
+#include <stdio.h>
+#include "./lib/modbus/modbus.h"
+#include <errno.h>
+#include <unistd.h>
+
+#define SLAVEID 1
+#define SERIAL_PORT "/dev/ttyUSB0"
+#define REGIS_START 0
+#define REGIS_COUNT 2
+#define POLL_INTERVAL 2
+
+int main() {
+    modbus_t *ctx;
+    uint16_t holding_registers[REGIS_COUNT] = {0};  // Array to store received data
+    bools coils[REGIS_COUNT] = {0};
+
+    // Create a MODBUS context
+    ctx = modbus_new_rtu(SERIAL_PORT, 9600, 'N', 8, 1);
+
+    if (ctx == NULL) {
+        fprintf(stderr, "Unable to create MODBUS context\n");
+        return -1;
+    }
+
+    // Set the MODBUS slave address
+    modbus_set_slave(ctx, SLAVEID);
+
+    // Connect to the MODBUS RTU slave
+    if (modbus_connect(ctx) == -1) {
+        fprintf(stderr, "Connection failed: %s\n", modbus_strerror(errno));
+        modbus_free(ctx);
+        return -1;
+    }
+
+    while (1) {
+        // Read holding registers (function code 3)
+        int rh = modbus_read_registers(ctx, REGIS_START, REGIS_COUNT, holding_registers);
+
+        if (rh == -1) {
+            fprintf(stderr, "MODBUS read error: %s\n", modbus_strerror(errno));
+        } else {
+            // Print the received data
+            printf("Received data from registers: ");
+            for (int i = 0; i < REGIS_COUNT; i++) {
+                printf("%u ", holding_registers[i]);
+            }
+            printf("\n");
+        }
+
+        int rc = modbus_read_input_bits(ctx, REGIS_START, REGIS_COUNT, coils);
+
+        if (rc == -1) {
+            fprintf(stderr, "MODBUS read error: %s\n", modbus_strerror(errno));
+        } else {
+            // Print the received data
+            printf("Received data from coils: ");
+            for (int i = 0; i < REGIS_COUNT; i++) {
+                printf("%u ", coils[i]);
+            }
+            printf("\n");
+        }
+        
+        // Sleep for a while before the next poll
+        sleep(POLL_INTERVAL);
+    }
+
+    // Close the MODBUS RTU connection (This part is never reached in the while loop)
+    modbus_close(ctx);
+    modbus_free(ctx);
+
+    return 0;
+}
